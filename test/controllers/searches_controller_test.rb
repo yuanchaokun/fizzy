@@ -54,6 +54,14 @@ class SearchesControllerTest < ActionDispatch::IntegrationTest
     assert_select ".search__blank-slate", text: "No matches"
   end
 
+  test "Chinese substring search finds a card and renders" do
+    @board.cards.create!(title: "确认飞凡仙子十二目相关的商标信息", status: "published", creator: @user)
+
+    get search_path(q: "商标", script_name: "/#{@account.external_account_id}")
+    assert_response :success
+    assert_select "li .search__title", text: /商标信息/
+  end
+
   test "search as JSON" do
     get search_path(q: "broken", script_name: "/#{@account.external_account_id}"), as: :json
     assert_response :success
