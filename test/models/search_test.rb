@@ -100,6 +100,31 @@ class SearchTest < ActiveSupport::TestCase
     assert_equal 30, Card.mentioning("capped", user: @user).distinct.count
   end
 
+  test "a Chinese substring matches a card title and an English word still matches" do
+    chinese = @board.cards.create!(title: "确认飞凡仙子十二目相关的商标信息", creator: @user, status: "published")
+    english = @board.cards.create!(title: "layout design", creator: @user, status: "published")
+
+    other_user = User.create!(name: "Other User", account: @account)
+    hidden_board = Board.create!(name: "Hidden Board", account: @account, creator: other_user)
+    hidden = hidden_board.cards.create!(title: "隐藏的商标卡片", creator: other_user, status: "published")
+
+    chinese_results = @user.search("商标").results.to_a
+    assert_equal [ chinese ], chinese_results
+    assert_nil chinese_results.first.hit.highlight(:title)
+    assert_includes Card.mentioning("商标", user: @user), chinese
+    assert_not_includes Card.mentioning("商标", user: @user), hidden
+
+    assert_equal [ english ], @user.search("layout").results.to_a
+  end
+
+  test "CJK characters survive query sanitizing" do
+    query = Search::Query.new(terms: "商标").tap(&:valid?)
+
+    assert_equal "商标", query.terms.strip
+    assert query.cjk?
+    assert_not Search::Query.new(terms: "layout").tap(&:valid?).cjk?
+  end
+
   test "search_relation returns a relation Card.mentioning can compose" do
     card = @board.cards.create!(title: "composable haggis", creator: @user, status: "published")
 

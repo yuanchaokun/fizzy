@@ -7,6 +7,10 @@ class Search::Query < ApplicationRecord
 
   delegate :to_s, to: :terms
 
+  # Porter / MySQL FULLTEXT both treat these as separators, so a query that
+  # contains any of them has to take the substring path in User::Searcher.
+  CJK_CHAR = /\p{Han}|\p{Hiragana}|\p{Katakana}|\p{Hangul}/
+
   class << self
     def wrap(query)
       if query.is_a?(self)
@@ -15,6 +19,10 @@ class Search::Query < ApplicationRecord
         self.new(terms: query)
       end
     end
+  end
+
+  def cjk?
+    terms.to_s.match?(CJK_CHAR)
   end
 
   private
@@ -45,7 +53,9 @@ class Search::Query < ApplicationRecord
       terms.gsub(/"[^"]*"|\w+(?:[^\w[:space:]\u200B"]+\w+)+/) { |match| match.start_with?("\"") ? match : "\"#{match}\"" }
     end
 
+    # \w is ASCII. CJK letters have to be kept or a query like 商标 becomes
+    # blank, fails validation, and User::Searcher filters to no board.
     def remove_invalid_search_characters(terms)
-      terms.gsub(/[^\w"]/, " ")
+      terms.gsub(/[^\w\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}"]/, " ")
     end
 end

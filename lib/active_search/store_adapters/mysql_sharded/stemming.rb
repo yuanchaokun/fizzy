@@ -47,8 +47,16 @@ module ActiveSearch
 
           # The one definition of an index token: documents, queries and highlighting
           # must all tokenise the same way or a mark lands where MySQL did not match.
+          # CJK is kept so a LIKE fallback can substring-match it; Porter has nothing
+          # to do with those characters and would only drop them.
           def stem_tokens(value)
-            value.to_s.gsub(/[^\w\s]/, " ").split(/\s+/).map { |word| STEMMER.stem(word.downcase) }
+            value.to_s.gsub(/[^\w\s\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}]/, " ").split(/\s+/).map do |word|
+              if word.match?(Search::Query::CJK_CHAR)
+                word
+              else
+                STEMMER.stem(word.downcase)
+              end
+            end
           end
       end
     end
